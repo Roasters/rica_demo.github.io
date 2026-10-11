@@ -63,7 +63,7 @@ for(const attr of attrs){
  for(const ex of examples){
   const article=document.createElement('article');
   const worlds=Object.entries(ex.worlds).map(([wid,w])=>`<div><h4>${esc(wid.replace('_',' '))}</h4><audio controls preload="none" src="${esc(w.audio_path)}"></audio><details><summary>Reveal expected targets</summary><div class="answers" data-world="${esc(wid)}"></div></details></div>`).join('');
-  article.innerHTML=`<h3>Example ${ex.example_number}: ${esc(ex.caption1)} / ${esc(ex.caption2)}</h3><p class="meta">${esc(ex.item_id)} · 6 seconds per world · signal QC passed</p><div class="worlds">${worlds}</div><div class="score-panel"><label class="caption-control">Fixed caption being scored<br><select aria-label="Fixed caption for ${esc(ex.item_id)}"><option value="1">${esc(ex.caption1)}</option><option value="2">${esc(ex.caption2)}</option></select></label><div class="score-content" aria-live="polite"></div></div>`;
+  article.innerHTML=`<h3>Example ${ex.example_number}: ${esc(ex.caption1)} / ${esc(ex.caption2)}</h3><p class="meta">${esc(ex.item_id)} · 6 seconds per world</p><div class="worlds">${worlds}</div><div class="score-panel"><label class="caption-control">Fixed caption being scored<br><select aria-label="Fixed caption for ${esc(ex.item_id)}"><option value="1">${esc(ex.caption1)}</option><option value="2">${esc(ex.caption2)}</option></select></label><div class="score-content" aria-live="polite"></div></div>`;
   const caption=article.querySelector('select');const card={ex,article,caption};cards.push(card);caption.addEventListener('change',()=>updateCard(card));section.append(article);
  }
  document.getElementById('examples').append(section);
