@@ -1,0 +1,20 @@
+{
+ "schema_version": "anc-v2.0",
+ "created_utc": "2026-08-05T13:32:56Z",
+ "signer": "anc-v2-build",
+ "config_hash": "910f0749cbdfd0c717cb1372e073b5d57997087572edbfd5f03b07c253f2a2cc",
+ "prompt_set_hash": "4b28a2e4842956ff812ac3a166afb7362c2fd6faf50d45ac432bcf4aeaba686f",
+ "base_pairs_hash": "595a5aba8bd2991589ac82847c89ae5cff212c956db2d6dbb81302f6ff1d207b",
+ "items_hash": "671887849aba225a546f7fb317d567cea12994d210500fb643588709ad293973",
+ "n_audio": 2376,
+ "audio_combined_sha256": "d79341c2b62a1eb2c7421494083d0044bf1d8278bee7bfc992c3423aabe97aec",
+ "model_registry": [
+  "qwen2-audio",
+  "qwen2.5-omni",
+  "salmonn",
+  "meralion",
+  "kimi",
+  "audioflamingo3",
+  "gama"
+ ]
+}

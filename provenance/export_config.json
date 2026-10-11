@@ -1,0 +1,215 @@
+{
+  "schema_version": "anc-v2.0",
+  "_meta": {
+    "purpose": "ANC-v2 confirmatory stimulus + audio + scoring contract. Integers in samples are authoritative; seconds are derived display fields. Frozen at Stage 1 (2026-08-05) except values tagged dev_tunable, which DEV/PILOT may set using numerical + human evidence only and must freeze in config before CONFIRM scoring.",
+    "decisions": "count DROPPED (D0/Study-1 only); 16-class pool; confirm_n=128 (deg-16 even balance). See paper/anc_v2_pool_decision.md, paper/anc_v2_design_pressuretest.md.",
+    "dataset_id_rule": "anc-v2.0-<sha256(config)[:12]>",
+    "validator_rules": "reject unknown keys; reject missing model revisions at seal time; reject inconsistent sample<->second fields; every stimulus/scoring/analysis value must appear here."
+  },
+
+  "audio_contract": {
+    "sample_rate": 16000,
+    "channels": 1,
+    "clip_samples": 96000,
+    "clip_seconds": 6.0,
+    "core_slot_samples": 38400,
+    "core_slot_onsets": [6400, 51200],
+    "inter_slot_gap_samples": 6400,
+    "layout_shift_samples": [-3200, 0, 3200],
+    "ramp_samples": 160,
+    "peak_ceiling_dbfs": -1.0,
+    "target_active_rms_dbfs": -26.0,
+    "group_gain": {
+      "rule": "gamma = min(1, 10^(-1/20) / (max_w ||w||_inf + eps)) applied identically to every world+variant of a base pair; never peak-normalize individual worlds.",
+      "eps": 1e-9,
+      "reject_if_group_attenuation_below_db": -18.0
+    }
+  },
+
+  "source_selection": {
+    "dataset": "esc50 (ashraq/esc50)",
+    "crop_samples": 38400,
+    "resample_to": 16000,
+    "remove_dc": true,
+    "active_frame_ms": 50,
+    "no_tiling": true,
+    "active_fraction_min": 0.80,
+    "crest_db_max": 26.0,
+    "stationarity_db_max": 5.0,
+    "_stationarity_note": "DEV gate so every source yields a clean trajectory ramp (dynamic sources fight the envelope). Frozen at 5.0 with a 12-class stationary pool (ESC-50 cannot robustly supply 16 stationary classes across folds). Dev_tunable.",
+    "_tune": "active_fraction_min, crest_db_max are dev_tunable (Sec 4.2 step 5). crest_db_max frozen 18->26 in DEV fold-1 (admits impulsive-but-active textures; see results/dev_counterfactual_v2_searchlog.txt).",
+    "normalize_realized_crop_to_active_rms": true,
+    "store_offsets_and_hashes": true
+  },
+
+  "cohorts": {
+    "dev_folds": [1],
+    "pilot_folds": [2],
+    "confirm_folds": [3, 4, 5],
+    "research_model_crossover_allowed": {"dev": false, "pilot": false, "confirm": true}
+  },
+
+  "classes": [
+    "rain", "sea_waves", "wind", "crickets",
+    "engine", "train", "helicopter", "chainsaw",
+    "airplane", "vacuum_cleaner", "toilet_flush", "washing_machine"
+  ],
+  "_classes_note": "12-class STATIONARY pool (trajectory stationarity gate <=5 dB). ESC-50 lacks 16 stationary classes across folds, so the pool shrank from 16 (the accepted cost of the stationarity-gate decision). Dropped dynamic classes (thunderstorm/pouring_water/crackling_fire/chirping_birds/frog/hen/snoring/brushing_teeth) -> reserves. Machine-heavy (8/12) but each machine is acoustically distinct (drone/clack/rotor/buzz/jet/hiss/whoosh).",
+  "dev_watch_classes": ["chainsaw", "washing_machine"],
+  "reserve_classes": ["crackling_fire", "thunderstorm", "pouring_water", "chirping_birds",
+                      "frog", "hen", "snoring", "brushing_teeth"],
+
+  "pairing": {
+    "confirm_n": 108,
+    "per_class_degree_confirm": 18,
+    "dev_n": 36,
+    "pilot_n": 36,
+    "_n_note": "12 classes. confirm_n=108 -> even degree 18 (216/12); dev/pilot n=36 -> even degree 6. Set to 108 (not 120) because crickets yields only 19/24 stationary crops in folds 3-5 under the gate; degree 18 <= 19 is feasible for all 12 classes (verified folds 3-5). Preregistration re-frozen with this feasible config before any model contact.",
+    "source_reuse_within_cohort": false,
+    "cluster_unit": "base_pair_id",
+    "cap1_cap2_orientation": "euler_tour_even_degree",
+    "seed_pairing": 20260805,
+    "seed_counterbalance": 20260806,
+    "reserve_pair_schedule": "preregistered; used only on infeasibility, never after seeing model results",
+    "selector_objective": "maximize min human clarity; NEVER use a model score"
+  },
+
+  "properties": {
+    "order": {
+      "poles": {"positive": "first", "negative": "last"},
+      "layout": "two core slots, sequential; excerpts bit-identical across worlds (exact slot permutation)",
+      "variants": {
+        "equal": {"slot_gain_db": 0.0},
+        "first_louder": {"slot1_gain_db": 6.0, "slot2_gain_db": -6.0},
+        "last_louder": {"slot1_gain_db": -6.0, "slot2_gain_db": 6.0}
+      },
+      "_note": "salience-conflict variants; slot contrast 12 dB must match loudness_delta_db."
+    },
+    "loudness": {
+      "poles": {"positive": "louder", "negative": "quieter"},
+      "layout": "two core slots, sequential (NOT overlapping); identity->slot fixed across worlds",
+      "variants": {
+        "natural": {"high_offset_db": 6.0, "low_offset_db": -6.0, "delta_db": 12.0}
+      },
+      "dev_delta_candidates_db": [9.0, 12.0, 15.0],
+      "_note": "delta_db dev_tunable; overlapping-mixture is a secondary robustness arm only, not primary."
+    },
+    "duration": {
+      "poles": {"positive": "longer", "negative": "shorter"},
+      "long_samples": 38400,
+      "short_samples": 12800,
+      "ratio": "3:1",
+      "onset_fixed_across_worlds": true,
+      "short_is_prefix_of_long_excerpt": true,
+      "variants": {
+        "natural": {"policy": "equal_active_rms", "long_extra_integrated_energy": "3x"},
+        "energy_equal": {"policy": "equal_integrated_energy", "long_gain_db": -4.771}
+      }
+    },
+    "trajectory": {
+      "poles": {"positive": "rising", "negative": "falling"},
+      "layout": "two core slots, sequential; identity->slot fixed across worlds",
+      "event_samples": 38400,
+      "span_db": 15.0,
+      "envelope": "linear_db",
+      "normalize_each_direction_to_equal_integrated_energy": true,
+      "variants": {"natural": {}},
+      "dev_span_candidates_db": [12.0, 15.0, 18.0]
+    },
+    "anchor": {
+      "poles": {"positive": "before_beep", "negative": "after_beep"},
+      "layout": "[e1] [beep in central gap] [e2]; beep waveform+indices identical across worlds",
+      "beep": {"frequency_hz": 1000, "samples": 1920, "ramp_samples": 160, "active_rms_dbfs": -24.0},
+      "central_gap_side_samples": 2240,
+      "variants": {
+        "natural": {},
+        "beep_removed": {"beep": "silence, identical layout; control, not in primary strict rate"}
+      }
+    },
+    "anchordist": {
+      "poles": {"positive": "nearer_beep", "negative": "farther_beep"},
+      "layout": "candidates fixed+bit-identical across worlds; only the beep moves",
+      "candidate_samples": 16000,
+      "left_candidate_onset": 16000,
+      "right_candidate_onset": 64000,
+      "near_gap_samples": 3200,
+      "far_gap_samples": 26880,
+      "beep": {"frequency_hz": 1000, "samples": 1920, "ramp_samples": 160, "active_rms_dbfs": -24.0},
+      "variants": {
+        "natural": {},
+        "equidistant": {"beep_onset_samples": 47040, "boundary_gap_samples": 15040,
+                        "_note": "null: no unique near/far target; analyzed as null margin, not strict crossover"}
+      }
+    }
+  },
+
+  "qc_tolerances": {
+    "ab_duration_diff_samples": 0,
+    "ab_energy_diff_db": 0.10,
+    "ab_rms_diff_db": 0.10,
+    "contrast_realized_tol_db": 0.10,
+    "peak_max_dbfs": -1.0,
+    "nonfinite_samples": 0,
+    "clipped_samples": 0,
+    "trajectory_early_late_contrast_min_db": 8.0,
+    "trajectory_spearman_abs_min": 0.60,
+    "trajectory_contrast_window_frac": 0.20,
+    "trajectory_smooth_frames": 5,
+    "_trajectory_note": "early_late 10->8, spearman .70->.60 in DEV (measurement was over-strict; the applied envelope is a clean monotone ramp, verified perceptible).",
+    "dispatch_rule": "RENDERERS.get((property,variant)) else raise; NO catch-all else->duration branch"
+  },
+
+  "blinded_world_labels": {
+    "encode_roles_in_filenames": false,
+    "world_ids": ["world_0", "world_1"],
+    "positive_world_balanced_over": ["property", "variant", "source_class", "nuisance"],
+    "role_source": "manifest world-role map ONLY; never parse item_id or A/B names"
+  },
+
+  "prompts": {
+    "frames": [
+      {"prompt_id": "describe", "frame": "Describe the sound that {relation}."},
+      {"prompt_id": "which_describe", "frame": "Which sound {relation}? Describe that sound."},
+      {"prompt_id": "select", "frame": "Select the sound that {relation}, and describe it."},
+      {"prompt_id": "focus", "frame": "Focus on the sound that {relation}. Describe that sound."}
+    ],
+    "relations": {
+      "order": {"positive": "occurs first", "negative": "occurs last"},
+      "loudness": {"positive": "is louder than the other sound", "negative": "is quieter than the other sound"},
+      "duration": {"positive": "lasts longer than the other sound", "negative": "lasts for less time than the other sound"},
+      "trajectory": {"positive": "becomes louder over time", "negative": "becomes quieter over time"},
+      "anchor": {"positive": "occurs before the reference beep", "negative": "occurs after the reference beep"},
+      "anchordist": {"positive": "is closer in time to the reference beep", "negative": "is farther in time from the reference beep"}
+    },
+    "banned_words": ["prominent", "foreground", "background", "dominates", "barely audible",
+                     "starts the clip", "ends the clip", "fades in", "disappears"],
+    "freeze": "human-verify opposing relation; inspect tokenizer with NO audio scores; freeze punctuation/carrier/template/spacing; hash prompts.json into seal."
+  },
+
+  "scoring": {
+    "conditionals": ["none", "audio", "instruction", "audio_instruction"],
+    "derived": {"F_hat": "l_audio - l_none", "r_rel": "l_audio_instruction - l_audio", "r_hat": "l_audio_instruction - l_instruction"},
+    "captions": "both",
+    "prompt_aggregation": "analysis-only, equal-weight; never average before serialization",
+    "save_per_prompt": true,
+    "save_token_ids_hash": true,
+    "save_token_logprob_artifact": true,
+    "assertions": ["nonempty caption span", "finite logprobs", "caption string+hash match",
+                   "compatible tokenization across 4 conditionals", "deterministic repeat on audit subset",
+                   "no duplicate result key"],
+    "repeatability_audit_items": 20
+  },
+
+  "model_panel": [
+    {"id": "qwen2-audio", "revision": null},
+    {"id": "qwen2.5-omni", "revision": null},
+    {"id": "salmonn", "revision": null},
+    {"id": "meralion", "revision": null},
+    {"id": "kimi", "revision": null},
+    {"id": "audioflamingo3", "revision": null},
+    {"id": "gama", "revision": null}
+  ],
+  "model_panel_note": "Frozen 7-model panel. revision/hashes MUST be pinned before CONFIRM (Stage 5); validator rejects null revisions at seal. gama/audioflamingo3 run fp32 sharded on 2 GPUs.",
+
+  "output_root": "/disk4/personal/sjhoney/metric/data/anc_v2"
+}

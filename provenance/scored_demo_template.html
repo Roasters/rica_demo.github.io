@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Salience Is Not Grounding — audio and margins</title>
+<style>
+:root{color-scheme:light;--ink:#162536;--muted:#536579;--good:#087a67;--bad:#b74432}
+*{box-sizing:border-box}body{font:16px/1.6 system-ui,sans-serif;background:#f4f7fa;color:var(--ink);max-width:1120px;margin:40px auto;padding:0 22px}
+h1{font-size:clamp(30px,5vw,48px);line-height:1.12;margin-bottom:14px}h2{margin-top:44px}h3{margin:0 0 8px}h4{margin:10px 0}
+a{color:#225aa2}p{max-width:95ch}.note,.meta{color:var(--muted);font-size:14px}.controls{display:flex;flex-wrap:wrap;gap:18px;background:#e8eef5;padding:18px;border-radius:12px}
+label{display:block}select{max-width:100%;padding:9px;border:1px solid #9aabba;border-radius:6px;background:white;font:inherit}
+article{background:white;border:1px solid #d9e3eb;border-radius:14px;padding:24px;margin:18px 0;box-shadow:0 3px 12px #182d4810}
+.worlds{display:grid;grid-template-columns:1fr 1fr;gap:24px}audio{width:100%}summary{cursor:pointer;margin:10px 0}.score-panel{border-top:1px solid #d9e3eb;margin-top:20px;padding-top:18px}
+.caption-control{margin-bottom:14px}.badge{display:inline-block;padding:4px 12px;border-radius:20px;font-weight:650;background:#eef1f5}.correct_crossover{background:#dcf5ed;color:#086553}.wrong_crossover{background:#fde7e4;color:#9b3026}
+.same_world_preferred{background:#fff0d4;color:#815215}.margin-row{display:grid;grid-template-columns:minmax(150px,1fr) 2fr 100px;gap:14px;align-items:center;margin:15px 0}
+.track{height:24px;background:#edf1f5;position:relative;border-radius:4px}.track:after{content:'';position:absolute;left:50%;height:100%;border-left:1px solid #46566a}.bar{position:absolute;top:4px;height:16px;background:var(--good);border-radius:2px}.bar.negative{background:var(--bad)}
+.number{font-variant-numeric:tabular-nums;font-family:ui-monospace,monospace;text-align:right}.axis{display:flex;justify-content:space-between;font-size:12px;color:var(--muted)}
+table{border-collapse:collapse;width:100%;margin:14px 0;font-size:14px}th,td{text-align:left;border-bottom:1px solid #dce4eb;padding:8px}.table-wrap{overflow-x:auto}.statusline{display:flex;flex-wrap:wrap;gap:14px;align-items:center}
+nav{display:flex;flex-wrap:wrap;gap:12px}footer{margin:38px 0}.equation{font-family:ui-monospace,monospace;font-size:14px}
+@media(max-width:680px){.worlds{grid-template-columns:1fr}.margin-row{grid-template-columns:1fr 100px}.margin-label{grid-column:1/-1}article{padding:16px}body{padding:0 14px}}
+</style></head><body>
+<header><p class="meta">RICA · interactive examples</p><h1>Salience Is Not Grounding</h1>
+<p>Testing Relational Instruction Control in Audio-Language Models</p>
+<p>Listen to two worlds with the same sound identities but reversed relational roles.
+Then inspect whether changing the instruction reverses the model's preference for a <strong>fixed caption</strong>.</p>
+<p class="note">Five matched pairs per relation, selected using signal QC and sound-class diversity—not model scores.
+These are illustrative examples, not benchmark averages. Listener validation remains pending.
+Keep playback volume constant. Audio is not normalized for this page.</p></header>
+<div class="controls"><label>Model<br><select id="model"></select></label>
+<label>Prompt aggregation<br><select id="prompt"><option value="mean">Mean of all four prompts (paper default)</option></select></label></div>
+<details><summary>How to read the scores</summary>
+<p><b>m+ and m−:</b> positive means that the correct world receives the higher likelihood for the selected caption under that instruction.
+Both must be strictly positive for correct crossover (C = 1). These are comparisons across worlds, not a choice between captions in one recording.</p>
+<p><b>G = m+ + m−:</b> directional instruction sensitivity. A positive G does not imply that both instructions succeed.
+The expandable decomposition shows the audio-only preference b and the instruction lifts ρ+ and ρ−.</p>
+<p>All values are nats per caption token, not confidence percentages or generated answers. Decisions use full precision;
+labels show six significant digits. Very small nonzero margins retain their sign but need not be robust effects.
+Magnitude comparisons across differently tokenized models are not calibrated.</p>
+<p>The default averages all four prompt frames before deciding crossover. The instruction text on each card uses the first frame as representative wording.</p>
+<ul id="frames"></ul></details>
+<p><a href="margins.csv">Mean margins (CSV)</a> · <a href="per_prompt_margins.csv">Per-prompt margins</a> ·
+<a href="scores.json">Full scores (JSON)</a> · <a href="manifest.json">Audio manifest</a> · <a href="samples.csv">Target labels</a> · <a href="README.md">Readme</a></p>
+<nav id="nav"></nav><noscript>This interactive page needs JavaScript. Download margins.csv to inspect the scores without JavaScript.</noscript>
+<main id="examples"></main>
+<footer class="note">Audio derived from ESC-50. Check recording licenses and attribution before public redistribution.
+The saved model scores were computed on original floating-point WAVs; playback uses PCM16 copies with no gain or timing changes.
+No new inference was performed for this page.</footer>
+<script type="application/json" id="data">__DEMO_DATA__</script>
+<script>
+'use strict';
+const data=JSON.parse(document.getElementById('data').textContent);
+const modelSelect=document.getElementById('model'), promptSelect=document.getElementById('prompt');
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const number=v=>v===0?'0':(v>0?'+':'')+Number(v.toPrecision(6)).toString();
+const labels={correct_crossover:'Both instructions correct',wrong_crossover:'Both comparisons incorrect',same_world_preferred:'Same world preferred',tie:'Tie — not strict success'};
+for(const [id,label] of Object.entries(data.scores.models))modelSelect.add(new Option(label,id));
+for(const frame of data.prompts.frames){promptSelect.add(new Option(frame.frame,frame.prompt_id));const li=document.createElement('li');li.textContent=frame.frame;document.getElementById('frames').append(li);}
+const cards=[];
+const attrs=[...new Set(data.manifest.examples.map(e=>e.attribute))];
+for(const attr of attrs){
+ const examples=data.manifest.examples.filter(e=>e.attribute===attr);
+ const a=document.createElement('a');a.href='#'+attr;a.textContent=attr;document.getElementById('nav').append(a);
+ const section=document.createElement('section');section.id=attr;section.innerHTML='<h2>'+esc(examples[0].attribute_label)+'</h2>';
+ for(const ex of examples){
+  const article=document.createElement('article');
+  const worlds=Object.entries(ex.worlds).map(([wid,w])=>`<div><h4>${esc(wid.replace('_',' '))}</h4><audio controls preload="none" src="${esc(w.audio_path)}"></audio><details><summary>Reveal expected targets</summary><div class="answers" data-world="${esc(wid)}"></div></details></div>`).join('');
+  article.innerHTML=`<h3>Example ${ex.example_number}: ${esc(ex.caption1)} / ${esc(ex.caption2)}</h3><p class="meta">${esc(ex.item_id)} · 6 seconds per world · signal QC passed</p><div class="worlds">${worlds}</div><div class="score-panel"><label class="caption-control">Fixed caption being scored<br><select aria-label="Fixed caption for ${esc(ex.item_id)}"><option value="1">${esc(ex.caption1)}</option><option value="2">${esc(ex.caption2)}</option></select></label><div class="score-content" aria-live="polite"></div></div>`;
+  const caption=article.querySelector('select');const card={ex,article,caption};cards.push(card);caption.addEventListener('change',()=>updateCard(card));section.append(article);
+ }
+ document.getElementById('examples').append(section);
+}
+function getScore(card){return data.scores.items[card.ex.item_id][modelSelect.value][card.caption.value][promptSelect.value];}
+function scale(){
+ let max=0;
+ for(const ex of data.manifest.examples)for(const cid of ['1','2']){
+  const s=data.scores.items[ex.item_id][modelSelect.value][cid][promptSelect.value];max=Math.max(max,Math.abs(s.m_positive),Math.abs(s.m_negative));
+ }
+ return max||1;
+}
+function instruction(ex,pole){const frame=data.prompts.frames.find(f=>f.prompt_id===promptSelect.value)||data.prompts.frames[0];return frame.frame.replace('{relation}',data.prompts.relations[ex.attribute][pole]);}
+function updateCard(card){
+ const s=getScore(card), ex=card.ex, limit=scale();
+ for(const el of card.article.querySelectorAll('.answers')){const w=ex.worlds[el.dataset.world];el.innerHTML=['positive','negative'].map(p=>`<p><b>${esc(instruction(ex,p))}</b><br>Expected target: ${esc(w.answers[p])}</p>`).join('');}
+ const bars=[['positive','m+',s.m_positive],['negative','m−',s.m_negative]].map(([pole,label,v])=>{
+  const width=Math.abs(v)/limit*50,left=v<0?50-width:50;
+  return `<div class="margin-row"><div class="margin-label"><b>${label}</b><br>${esc(instruction(ex,pole))}</div><div><div class="track" aria-hidden="true"><div class="bar ${v<0?'negative':''}" style="left:${left}%;width:${width}%"></div></div><div class="axis"><span>${number(-limit)}</span><span>0</span><span>${number(limit)}</span></div></div><div class="number">${number(v)}</div></div>`;
+ }).join('');
+ const raw=Object.entries(s.raw_scores).map(([w,p])=>`<tr><th>${esc(w)}</th><td>${number(p.positive)}</td><td>${number(p.negative)}</td><td>${number(s.audio_only_scores[w])}</td></tr>`).join('');
+ card.article.querySelector('.score-content').innerHTML=`<div class="statusline"><span class="badge ${esc(s.status)}">${esc(labels[s.status])}</span><span>C = ${s.C} · G = ${number(s.G)}</span></div>${bars}<p class="note">${promptSelect.value==='mean'?'Four-prompt mean':'Single prompt'} · nats per caption token · shared scale within this model/view<br>For this caption: a+ = ${esc(s.positive_world)}, a− = ${esc(s.negative_world)}.</p><details><summary>Audio-only preference, instruction lifts, and raw scores</summary><p class="equation">m+ = b + ρ+ = (${number(s.b)}) + (${number(s.rho_positive)})<br>m− = −b + ρ− = (${number(-s.b)}) + (${number(s.rho_negative)})</p><div class="table-wrap"><table><thead><tr><th>World</th><th>s under positive instruction</th><th>s under negative instruction</th><th>Audio-only ℓa</th></tr></thead><tbody>${raw}</tbody></table></div><p class="note">s = mean caption-token log likelihood with audio and instruction. The same fixed caption is used in every cell.</p></details>`;
+}
+function updateAll(){cards.forEach(updateCard);}
+modelSelect.addEventListener('change',updateAll);promptSelect.addEventListener('change',updateAll);updateAll();
+document.addEventListener('play',e=>{if(e.target.tagName==='AUDIO')document.querySelectorAll('audio').forEach(a=>{if(a!==e.target)a.pause();});},true);
+</script></body></html>
