@@ -1,55 +1,104 @@
-# RICA audio and measured-margin demo
+# RICA Audio and Measured-Margin Demo
 
-Open index.html in a browser. This is a static HTML/CSS/JavaScript page: no compilation,
-backend, model inference, external scripts, analytics or network data fetch is needed.
-The audio files must remain beside the page in audio/. Select a model globally and a fixed
-caption per example. The default is the equal-weight mean over four frozen prompt frames;
-individual-prompt views are also available. The two instructions shown in the default
-view use the first frame as representative wording; all four are listed on the page.
+This repository contains an interactive demo for examining relational instruction control
+in audio-language models. Each example presents two audio worlds with the same sound
+identities but reversed relational roles. The page shows whether changing the instruction
+reverses a model's preference for a fixed caption.
 
-## Scores
+The demo covers six relations:
 
-- margins.csv: 420 caption-level rows (30 items x 7 models x 2 captions), four-prompt mean.
-- per_prompt_margins.csv: 1,680 individual-prompt rows, with the same metrics.
-- scores.json: nested full-precision scores, world orientation, decomposition and provenance.
-- provenance/selected_scores_*.jsonl: 6,720 original score records used for the demo.
-- manifest.json and samples.csv: stimulus metadata, audio paths and target labels.
+- temporal order: first / last
+- loudness: louder / quieter
+- duration: longer / shorter
+- trajectory: becoming louder / becoming quieter
+- temporal anchor: before / after a reference beep
+- anchor distance: closer to / farther from a reference beep
 
-m+ = mean_p[s(c,a+,x+,p) - s(c,a-,x+,p)].
-m- = mean_p[s(c,a-,x-,p) - s(c,a+,x-,p)].
-s is the mean caption-token log likelihood, not a probability or generated answer.
-G = m+ + m-. C = 1 only when both raw margins are strictly positive; exact ties fail.
-b is the audio-only preference for a+ over a-. rho+ = m+ - b; rho- = m- + b.
-Positive and negative worlds are defined separately for each fixed caption.
-No averaging across captions precedes crossover decisions. Values are in nats per caption
-token, not calibrated confidence; cross-model magnitudes are not directly comparable.
-Status decisions use full precision. The page displays six significant digits and uses
-the same symmetric bar scale across all examples/captions for the selected model and view.
+Five matched pairs are included for each relation. Results are available for seven models,
+two fixed captions per example, and four frozen prompt frames.
 
-This reuses saved model outputs; no new inference or score-dependent sample selection was
-performed. All exported margins were checked against the paper's caption_margins function.
-These five illustrative pairs per relation are NOT aggregate benchmark estimates.
-The models scored original floating-point WAVs; browser audio is a PCM16 derivative.
-Original audio remains in original_audio/. No volume normalization was applied.
-Independent listener validation remains unperformed. See provenance/unscored_samples_README.md
-for the original selection, audio fidelity, source provenance and redistribution notes.
+## Using the demo
 
-## Hosting
+Open `index.html` in a browser, select a model, and choose the fixed caption scored on each
+example card. The default view uses the equal-weight mean over all four prompt frames;
+individual-prompt views are also available.
 
-Recommended: host this static page on GitHub Pages; open the same index.html locally to
-preview it. Deploying the folder does not require a build step. .nojekyll is included.
-Use a separate site repository, not the full paper workspace or its large backup archives.
-For a smaller site, the interactive page needs only index.html and audio/; include linked
-scores.json, manifest.json, samples.csv, margins.csv, per_prompt_margins.csv and README.md
-to retain downloads. The full ZIP additionally preserves originals and raw-score provenance.
+To serve the repository locally:
 
-Nothing has been published by this exporter. Before publicly hosting, audit ESC-50 recording
-licenses/attribution. Before linking in an anonymous submission, audit the URL/account,
-repository history, downloadable files and metadata for identifying information. Do not
-enable analytics or author-accessible visitor tracking. The private archival package is
-not certified anonymized. Check the current venue rules.
+```bash
+python3 -m http.server 8000
+```
 
-To reproduce, run scripts/score_rica_demo.py --samples ORIGINAL_SAMPLE_FOLDER
---scores ORIGINAL_SCORE_DIRECTORY --output NEW_OUTPUT_FOLDER. The standalone provenance
-copy additionally needs this project's probe/counterfactual/metrics.py import available;
-use --template provenance/scored_demo_template.html when not running from the project tree.
+Then open `http://localhost:8000/`. The demo is static and performs no model inference,
+analytics, or external network requests.
+
+## Score interpretation
+
+For a fixed caption `c`, the demo compares its mean caption-token log likelihood between
+the relation-positive world `a+` and relation-negative world `a-`:
+
+```text
+m+ = mean_p[s(c, a+, x+, p) - s(c, a-, x+, p)]
+m- = mean_p[s(c, a-, x-, p) - s(c, a+, x-, p)]
+G  = m+ + m-
+```
+
+Both `m+` and `m-` must be strictly positive for a correct crossover (`C = 1`). Exact ties
+do not count as success. The audio-only preference and instruction lifts are decomposed as:
+
+```text
+m+ =  b + rho+
+m- = -b + rho-
+```
+
+Scores are measured in nats per caption token. They are not probabilities, generated
+answers, or calibrated confidence values, and their magnitudes are not directly comparable
+across differently tokenized models. Status decisions use full precision; the page displays
+six significant digits.
+
+## Repository contents
+
+| Path | Description |
+| --- | --- |
+| `index.html` | Self-contained interactive page with embedded demo metadata and scores |
+| `audio/` | PCM16 browser-playback audio |
+| `original_audio/` | Original floating-point WAV files used for scoring |
+| `manifest.json` | Stimulus metadata, audio paths, roles, and target labels |
+| `samples.csv` | Example-level sample metadata |
+| `margins.csv` | Four-prompt mean margins for 420 caption-level rows |
+| `per_prompt_margins.csv` | Margins for 1,680 individual prompt rows |
+| `scores.json` | Full-precision nested scores and decompositions |
+| `provenance/` | Selection records, score records, configuration, and export scripts |
+| `SHA256SUMS` | Checksums for the exported files |
+
+## Reproducibility
+
+The repository reuses saved model outputs; opening the demo performs no new inference.
+Samples were selected using signal-quality checks and sound-class diversity rather than
+model scores. Exported margins were checked against the analysis implementation used to
+produce the results.
+
+`provenance/score_rica_demo.py` reconstructs the scored package from an original sample
+folder and score directory. It requires NumPy and the project's
+`probe/counterfactual/metrics.py` module:
+
+```bash
+python3 provenance/score_rica_demo.py \
+  --samples ORIGINAL_SAMPLE_FOLDER \
+  --scores ORIGINAL_SCORE_DIRECTORY \
+  --output NEW_OUTPUT_FOLDER \
+  --template provenance/scored_demo_template.html
+```
+
+The exporter refuses to overwrite an existing output directory or archive.
+
+## Limitations and data notes
+
+These examples are illustrative and are not aggregate benchmark estimates. Independent
+listener validation has not been performed. The models scored the original floating-point
+WAV files; browser playback uses PCM16 derivatives with no gain or timing changes. No volume
+normalization was applied.
+
+The audio stimuli derive from ESC-50. Review the upstream dataset terms and individual
+recording attribution requirements before redistribution. Additional selection, fidelity,
+and provenance details are provided in `provenance/unscored_samples_README.md`.
