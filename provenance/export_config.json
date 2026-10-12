@@ -2,6 +2,7 @@
   "schema_version": "anc-v2.0",
   "_meta": {
     "purpose": "ANC-v2 confirmatory stimulus + audio + scoring contract. Integers in samples are authoritative; seconds are derived display fields. Frozen at Stage 1 (2026-08-05) except values tagged dev_tunable, which DEV/PILOT may set using numerical + human evidence only and must freeze in config before CONFIRM scoring.",
+    "anonymization_note": "The local output path was redacted after sealing. The dataset ID and config hash refer to the original sealed configuration.",
     "decisions": "count DROPPED (D0/Study-1 only); 16-class pool; confirm_n=128 (deg-16 even balance). See paper/anc_v2_pool_decision.md, paper/anc_v2_design_pressuretest.md.",
     "dataset_id_rule": "anc-v2.0-<sha256(config)[:12]>",
     "validator_rules": "reject unknown keys; reject missing model revisions at seal time; reject inconsistent sample<->second fields; every stimulus/scoring/analysis value must appear here."
@@ -211,5 +212,5 @@
   ],
   "model_panel_note": "Frozen 7-model panel. revision/hashes MUST be pinned before CONFIRM (Stage 5); validator rejects null revisions at seal. gama/audioflamingo3 run fp32 sharded on 2 GPUs.",
 
-  "output_root": "/disk4/personal/sjhoney/metric/data/anc_v2"
+  "output_root": "<redacted>"
 }
