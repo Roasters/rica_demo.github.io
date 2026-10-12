@@ -23,7 +23,6 @@ nav{display:flex;flex-wrap:wrap;gap:12px}footer{margin:38px 0}.equation{font-fam
 <p>Listen to two worlds with the same sound identities but reversed relational roles.
 Then inspect whether changing the instruction reverses the model's preference for a <strong>fixed caption</strong>.</p>
 <p class="note">Five matched pairs per relation, selected using signal QC and sound-class diversity—not model scores.
-These are illustrative examples, not benchmark averages. Listener validation remains pending.
 Keep playback volume constant. Audio is not normalized for this page.</p></header>
 <div class="controls"><label>Model<br><select id="model"></select></label>
 <label>Prompt aggregation<br><select id="prompt"><option value="mean">Mean of all four prompts (paper default)</option></select></label></div>
@@ -33,13 +32,10 @@ Both must be strictly positive for correct crossover (C = 1). These are comparis
 <p><b>G = m+ + m−:</b> directional instruction sensitivity. A positive G does not imply that both instructions succeed.
 The expandable decomposition shows the audio-only preference b and the instruction lifts ρ+ and ρ−.</p>
 <p>All values are nats per caption token, not confidence percentages or generated answers. Decisions use full precision;
-labels show six significant digits. Very small nonzero margins retain their sign but need not be robust effects.
-Magnitude comparisons across differently tokenized models are not calibrated.</p>
+labels show six significant digits. Very small nonzero margins retain their sign but need not be robust effects.</p>
 <p>The default averages all four prompt frames before deciding crossover. The instruction text on each card uses the first frame as representative wording.</p>
 <ul id="frames"></ul></details>
-<p><a href="margins.csv">Mean margins (CSV)</a> · <a href="per_prompt_margins.csv">Per-prompt margins</a> ·
-<a href="scores.json">Full scores (JSON)</a> · <a href="manifest.json">Audio manifest</a> · <a href="samples.csv">Target labels</a> · <a href="README.md">Readme</a></p>
-<nav id="nav"></nav><noscript>This interactive page needs JavaScript. Download margins.csv to inspect the scores without JavaScript.</noscript>
+<nav id="nav"></nav><noscript>This interactive page needs JavaScript.</noscript>
 <main id="examples"></main>
 <footer class="note">Audio derived from ESC-50. Check recording licenses and attribution before public redistribution.
 The saved model scores were computed on original floating-point WAVs; playback uses PCM16 copies with no gain or timing changes.
